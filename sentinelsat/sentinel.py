@@ -67,35 +67,54 @@ class SentinelAPI(object):
         self._last_query = None
         self._last_status_code = None
 
-    def query(self, area, initial_date=None, end_date=None, **keywords):
+    def query(self, area, initial_date=None, end_date='NOW', **keywords):
         """Query the SciHub API with the coordinates of an area, a date interval
-        and any other search keywords accepted by the SciHub API.
+        and any other search keywords accepted by the DataHub API.
+
+        Parameters
+        ----------
+        area : str
+            WKT-formatted area of interest polygon
+            e.g. produced by get_coordinates()
+        initial_date : str, datetime-like or NOW-1DAY etc.
+            initial date for query
+            default: 24 hours before end_date
+        end_date : same as initial_date
+            end date for query
+            if both end_date and initial_date are None,
+            dates are omitted from the query
+        **keywords : dict
+            additional search keywords
         """
         query = self.format_query(area, initial_date, end_date, **keywords)
         return self.load_query(query)
 
     @staticmethod
-    def format_query(area, initial_date=None, end_date=None, **keywords):
+    def format_query(area, initial_date=None, end_date='NOW', **keywords):
         """Create the SciHub API query string
         """
-        if end_date is None:
-            end_date = 'NOW'
+        if initial_date is None and end_date is not None:
+            try:
+                initial_date = end_date - timedelta(days=1)
+            except TypeError:
+                if end_date == 'NOW':
+                    initial_date = 'NOW-1DAY'
+                else:
+                    raise ValueError('Empty initial_date requires end_date to be datetime. Was {}.'.format(end_date))
 
-        if initial_date is None:
-            initial_date = 'NOW-1DAY'
+        query_items = []
+        if initial_date is not None and end_date is not None:
+            query_items.append(
+                    '(beginPosition:[%s TO %s])' % (
+                        _format_date(initial_date),
+                        _format_date(end_date)))
 
-        acquisition_date = '(beginPosition:[%s TO %s])' % (
-            _format_date(initial_date),
-            _format_date(end_date)
-        )
-        query_area = ' AND (footprint:"Intersects(POLYGON((%s)))")' % area
+        query_items.append('(footprint:"Intersects(%s)")' % area)
 
-        filters = ''
         for kw in sorted(keywords.keys()):
-            filters += ' AND (%s:%s)' % (kw, keywords[kw])
+            query_items.append('(%s:%s)' % (kw, keywords[kw]))
 
-        query = ''.join([acquisition_date, query_area, filters])
-        return query
+        return ' AND '.join(query_items)
 
     def load_query(self, query, start_row=0):
         """Do a full-text query on the SciHub API using the OpenSearch format specified in
@@ -450,7 +469,7 @@ def format_coordinates(coordinates):
     """Format coordinates string for SentinelAPI.query"""
     # precision of 7 decimals equals 1mm at the equator
     cc = ['%.7f %.7f' % (coord[0], coord[1]) for coord in coordinates]
-    return ','.join(cc)
+    return 'POLYGON((%s))' % (','.join(cc))
 
 
 def _fillin_cainfo(kwargs_dict):
@@ -477,18 +496,32 @@ def _fillin_cainfo(kwargs_dict):
     return kwargs_dict
 
 
+def _date_is_relative(in_date):
+    try:
+        return re.match(r'^NOW(?:-\d+(?:MONTH|DAY|HOUR|MINUTE)S?)?$', in_date) is not None
+    except TypeError:
+        return False
+
+
 def _format_date(in_date):
     """Format date or datetime input or a YYYYMMDD string input to
-    YYYY-MM-DDThh:mm:ssZ string format. In case you pass an
+    YYYY-MM-DDThh:mm:ssZ string format.
     """
-
-    if type(in_date) == datetime or type(in_date) == date:
-        return in_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+    target_fmt = '%Y-%m-%dT%H:%M:%SZ'
+    if isinstance(in_date, (datetime, date)):
+        return in_date.strftime(target_fmt)
     else:
-        try:
-            return datetime.strptime(in_date, '%Y%m%d').strftime('%Y-%m-%dT%H:%M:%SZ')
-        except ValueError:
+        formats = ['%Y%m%d', target_fmt]
+        for fmt in formats:
+            try:
+                return datetime.strptime(in_date, fmt).strftime(target_fmt)
+            except ValueError:
+                continue
+        if _date_is_relative(in_date):
             return in_date
+    # none of the above worked
+    raise ValueError('Invalid date. Expecting datetime-like, date string '
+            'or NOW-1DAY etc. Got {}.'.format(in_date))
 
 
 def _convert_timestamp(in_date):
@@ -504,7 +537,7 @@ def _check_scihub_response(response):
     try:
         response.raise_for_status()
         response.json()
-    except (requests.HTTPError, ValueError) as e:
+    except (requests.HTTPError, ValueError):
         msg = "API response not valid. JSON decoding failed."
         code = None
         try:

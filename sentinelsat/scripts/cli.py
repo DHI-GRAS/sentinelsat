@@ -29,7 +29,7 @@ def cli():
 @click.argument('password', type=str, metavar='<password>')
 @click.argument('geojson', type=click.Path(exists=True), metavar='<geojson>')
 @click.option(
-    '--start', '-s', type=str, default='NOW-1DAY',
+    '--start', '-s', type=str,
     help='Start date of the query in the format YYYYMMDD.')
 @click.option(
     '--end', '-e', type=str, default='NOW',
@@ -70,7 +70,6 @@ def cli():
     '-c', '--cloud', type=int,
     help='Maximum cloud cover in percent. (Automatically sets --sentinel2)')
 @click.version_option(version=sentinelsat_version, prog_name="sentinelsat")
-
 def search(
         user, password, geojson, start, end, download, md5,
         sentinel1, sentinel2, cloud, footprints, path, query, url):
@@ -138,7 +137,6 @@ def search(
     to corrupt_scenes.txt.')
     """)
 @click.version_option(version=sentinelsat_version, prog_name="sentinelsat")
-
 def download(user, password, productid, path, md5, url):
     """Download a Sentinel Product. It just needs your SciHub user and password
     and the id of the product you want to download.

@@ -17,12 +17,12 @@ _api_auth = dict(user=environ.get('SENTINEL_USER'), password=environ.get('SENTIN
 _api_kwargs = dict(_api_auth, api_url='https://scihub.copernicus.eu/apihub/')
 
 _small_query = dict(
-    area='0 0,1 1,0 1,0 0',
+    area='POLYGON((0 0,1 1,0 1,0 0))',
     initial_date=datetime(2015, 1, 1),
     end_date=datetime(2015, 1, 2))
 
 _large_query = dict(
-    area='0 0,0 10,10 10,10 0,0 0',
+    area='POLYGON((0 0,0 10,10 10,10 0,0 0))',
     initial_date=datetime(2015, 1, 1),
     end_date=datetime(2015, 12, 31))
 
@@ -81,15 +81,18 @@ def test_api_query_format():
     api = SentinelAPI("mock_user", "mock_password")
 
     now = datetime.now()
-    query = api.format_query('0 0,1 1,0 1,0 0', end_date=now)
+    query = api.format_query('POLYGON((0 0,1 1,0 1,0 0))', end_date=now)
     last_24h = _format_date(now - timedelta(hours=24))
     assert query == '(beginPosition:[%s TO %s]) ' % (last_24h, _format_date(now)) + \
                     'AND (footprint:"Intersects(POLYGON((0 0,1 1,0 1,0 0)))")'
 
-    query = api.format_query('0 0,1 1,0 1,0 0', end_date=now, producttype='SLC')
+    query = api.format_query('POLYGON((0 0,1 1,0 1,0 0))', end_date=now, producttype='SLC')
     assert query == '(beginPosition:[%s TO %s]) ' % (last_24h, _format_date(now)) + \
                     'AND (footprint:"Intersects(POLYGON((0 0,1 1,0 1,0 0)))") ' + \
                     'AND (producttype:SLC)'
+
+    query = api.format_query('POLYGON((0 0,1 1,0 1,0 0))', end_date=None)
+    assert query == '(footprint:"Intersects(POLYGON((0 0,1 1,0 1,0 0)))")'
 
 
 @my_vcr.use_cassette
