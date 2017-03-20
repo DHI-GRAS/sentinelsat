@@ -67,7 +67,7 @@ class SentinelAPI(object):
         self._last_query = None
         self._last_status_code = None
 
-    def query(self, area, initial_date=None, end_date=datetime.now(), **keywords):
+    def query(self, area, initial_date=None, end_date=None, **keywords):
         """Query the SciHub API with the coordinates of an area, a date interval
         and any other search keywords accepted by the SciHub API.
         """
@@ -75,11 +75,14 @@ class SentinelAPI(object):
         return self.load_query(query)
 
     @staticmethod
-    def format_query(area, initial_date=None, end_date=datetime.now(), **keywords):
+    def format_query(area, initial_date=None, end_date=None, **keywords):
         """Create the SciHub API query string
         """
+        if end_date is None:
+            end_date = 'NOW'
+
         if initial_date is None:
-            initial_date = end_date - timedelta(hours=24)
+            initial_date = 'NOW-1DAY'
 
         acquisition_date = '(beginPosition:[%s TO %s])' % (
             _format_date(initial_date),
