@@ -148,8 +148,8 @@ def test_large_query():
 
 @pytest.mark.fast
 def test_get_coordinates():
-    coords = ('-66.2695312 -8.0592296,-66.2695312 0.7031074,' +
-              '-57.3046875 0.7031074,-57.3046875 -8.0592296,-66.2695312 -8.0592296')
+    coords = ('POLYGON((-66.2695312 -8.0592296,-66.2695312 0.7031074,'
+            '-57.3046875 0.7031074,-57.3046875 -8.0592296,-66.2695312 -8.0592296))')
     assert get_coordinates('tests/map.geojson') == coords
     assert get_coordinates('tests/map_z.geojson') == coords
 
